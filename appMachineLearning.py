@@ -6,9 +6,10 @@ from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.linear_model import LinearRegression, SGDClassifier, RidgeClassifier, Lasso
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, confusion_matrix
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
+from sklearn.cluster import KMeans, DBSCAN, MiniBatchKMeans
 ######################################### IMPORTS
 
 st.sidebar.header("Machine Learning App")
@@ -23,12 +24,13 @@ class appMLSupervisioned:
   columnsToPredict = ""
   whatRadioButton = ""
   sizeTest = ""
-  columnsSelected = ""
+  columnsSelected = 0
   whichButton = ""
   numberOfColumns = 0
   dropColumns = ""
   radioRegression = ""
   radioClassifier = ""
+  radioClustering = ""
   X_new = ""
 
   def loadFileMachineLearning(self):
@@ -46,31 +48,142 @@ class appMLSupervisioned:
       ("Supervisioned", "Unsupervisioned")
     )
     if radioButtonSuperUnsuper == "Supervisioned":
-      st.write("a")
-      self.dropAnyColumn()
+      self.dropAnyColumn("S")
     else:
-      st.write("b")
-      #self.getBestColumnsToTrainTest()
+      self.dropAnyColumn("Un")
 
-  def dropAnyColumn(self):
+  def dropAnyColumn(self, textModel):
     if self.originalDataset is not None:
       self.dropColumns = st.sidebar.multiselect(
         "Drop Selected Column",
         self.originalDataset.columns
       )
       self.dataItens = self.originalDataset.drop(self.dropColumns, axis = 1)
-      self.radioButtonBestColumn()
+      if textModel == "S":
+        self.radioButtonBestColumn(textModel)
+      else:
+        self.radioButtonBestColumn(textModel)
 
-  def radioButtonBestColumn(self):
-    radioButton = st.sidebar.radio(
-      "Select or use Best Column(s)?",
-      ("All Column(s)", "KBest Algorithm")
-    )
-    self.whatRadioButton = radioButton
-    if radioButton == "All Column(s)":
-      self.getTargetColumnsToPredict()
+  def radioButtonBestColumn(self, textModel):
+    if textModel == "S":
+      radioButton = st.sidebar.radio(
+        "Select or use Best Column(s)?",
+        ("All Column(s)", "KBest Algorithm")
+      )
+      self.whatRadioButton = radioButton
+      if radioButton == "All Column(s)":
+        self.getTargetColumnsToPredict()
+      else:
+        self.getBestColumnsToTrainTest()
     else:
-      self.getBestColumnsToTrainTest()
+      radioButton = st.sidebar.radio(
+        "Select or use All Column(s)?",
+        ("All Column(s)", "Which Columns")
+      )
+      self.whatRadioButton = radioButton
+      if radioButton == "Which Columns":
+        self.columnsSelected = st.sidebar.multiselect(
+          "Select the Columns",
+          self.dataItens.columns
+        )
+        if len(self.columnsSelected):
+          self.targetColumns = st.sidebar.multiselect(
+            "Target",
+            self.dataItens.columns
+          )
+          ##CALL FOR SHOW DATASET
+          if len(self.targetColumns):
+            st.header("Dataset to cluster")
+            self.X_new = self.dataItens[self.columnsSelected + self.targetColumns]
+            st.write(self.X_new)
+          else:
+            st.markdown("Please, Select a **Target** column of the dataset.")
+          ##CALL FOR SHOW DATASET
+
+          self.selectAlgorithmClustering()
+        else:
+          st.markdown("Please, Select the **Columns** of the dataset.")
+
+      else:
+        self.targetColumns = st.sidebar.multiselect(
+          "Target",
+          self.dataItens.columns
+        )
+        if len(self.targetColumns):
+          #self.dataItens = self.dataItens.drop(self.targetColumns, axis = 1)
+          st.write(self.dataItens)
+          self.selectAlgorithmClustering()
+        else:
+          st.write(self.dataItens)
+          self.selectAlgorithmClustering()
+  
+  def selectAlgorithmClustering(self):
+    self.radioClustering = st.sidebar.radio(
+      "Select the Algorithm Clustering",
+      (
+        "K-means",
+        "DBSCAN",
+        "MiniBatchKMeans"
+      )
+    )
+    if len(self.radioClustering):
+      self.buttonClusterData()
+  
+  def createClusterData(self):
+    X = self.originalDataset[self.columnsSelected]
+    y = self.originalDataset[self.targetColumns]
+    le = preprocessing.LabelEncoder()
+    y = le.fit_transform(y)
+    return train_test_split(X, y, test_size = 0.2)
+
+
+  def callForClusterAlgorithms(self):
+    X_train, X_test, y_train, y_test = self.createClusterData()
+
+    if self.radioClustering == "K-means":
+      model, y_pred = self.KMeansModel(X_train, X_test, y_train, y_test)
+      self.metricsReporteClustering(model, y_pred, X_train, X_test, y_train, y_test)
+    elif self.radioClustering == "DBSCAN":
+      model, y_pred = self.DBScanModel(X_train, X_test, y_train, y_test)
+      self.metricsReporteClustering(model, y_pred, X_train, X_test, y_train, y_test)
+    else:
+      model, y_pred = self.MiniBatchKMeansModel(X_train, X_test, y_train, y_test)
+      self.metricsReporteClustering(model, y_pred, X_train, X_test, y_train, y_test)
+
+  def metricsReporteClustering(self, model, y_pred, X_train, X_test, y_train, y_test):
+    st.write("Para o modelo atual as métricas foram de:")
+    st.text(confusion_matrix(y_test, y_pred))
+    st.text(classification_report(y_test, y_pred))
+
+  #CLUSTERING ALGORITHMS
+  def KMeansModel(self, X_train, X_test, y_train, y_test):
+    model = KMeans(n_clusters = len(pd.Series(y_train).unique()))
+    model.fit(X_train)
+    y_pred = model.predict(X_test)
+    return model, y_pred
+  
+  def DBScanModel(self, X_train, X_test, y_train, y_test):
+    model = DBSCAN()
+    model.fit(X_train)
+    y_pred = model.fit_predict(X_test)
+    return model, y_pred
+  
+  def MiniBatchKMeansModel(self, X_train, X_test, y_train, y_test):
+    model = MiniBatchKMeans(n_clusters = len(pd.Series(y_train).unique()))
+    model.fit(X_train)
+    y_pred = model.predict(X_test)
+    return model, y_pred
+  #CLUSTERING ALGORITHMS
+
+  def buttonClusterData(self):
+    if st.sidebar.button('Cluster Data'):
+      st.header("Clustering Model - Wait Please")
+      if self.whatRadioButton == "Which Columns":
+        self.callForClusterAlgorithms()
+      else:
+        self.dataItens = self.dataItens.drop(self.targetColumns, axis = 1)
+        st.write(self.dataItens.columns)
+        self.callForClusterAlgorithms()
 
   def getBestColumnsToTrainTest(self):
     if self.whatRadioButton == "KBest Algorithm":
@@ -88,7 +201,6 @@ class appMLSupervisioned:
       "Target(s)",
       self.dataItens.columns
     )
-
 
     ##CALL FOR KBEST FUNCTION
     if len(self.targetColumns):
