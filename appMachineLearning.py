@@ -11,10 +11,11 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 ######################################### IMPORTS
 
-st.sidebar.header("Supervised ML App")
+st.sidebar.header("Machine Learning App")
+st.sidebar.text("by @DLFP - longhi88@hotmail.com")
 
 ######################################## CLASS
-class appMachineLearning:
+class appMLSupervisioned:
   originalDataset = ""
   dataItens = ""
   dataItensFiltered = ""
@@ -36,7 +37,20 @@ class appMachineLearning:
       self.originalDataset = pd.read_csv(uploadFile)
       st.header("Original Dataset")
       st.write(self.originalDataset.head(10))
+      self.SuperUnsuper()
+
+  def SuperUnsuper(self):
+    #Verificar se eh Super ou Unsuper
+    radioButtonSuperUnsuper = st.sidebar.radio(
+      "What kind of ML would you like to use?",
+      ("Supervisioned", "Unsupervisioned")
+    )
+    if radioButtonSuperUnsuper == "Supervisioned":
+      st.write("a")
       self.dropAnyColumn()
+    else:
+      st.write("b")
+      #self.getBestColumnsToTrainTest()
 
   def dropAnyColumn(self):
     if self.originalDataset is not None:
@@ -182,6 +196,7 @@ class appMachineLearning:
     return model, y_pred
 
   def KNNModel(self, X_train, X_test, y_train, y_test):
+    #DEFAULT KNN =3
     model = KNeighborsClassifier(n_neighbors = 3)
     model.fit(X_train,y_train)
     y_pred = model.predict(X_test)
@@ -254,6 +269,6 @@ class appMachineLearning:
 
 
 ####################################### CALLABLE
-appML = appMachineLearning()
-appML.loadFileMachineLearning()
+appMLSupervisioned = appMLSupervisioned()
+appMLSupervisioned.loadFileMachineLearning()
 ####################################### CALLABLE
